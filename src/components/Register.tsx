@@ -1,11 +1,12 @@
 "use client";
 
+import { ChevronRight, Download, Search } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { daysBetween, formatDate } from "@/lib/dates";
 import type { Actions } from "@/lib/store";
-import { STATUSES, type Deadline, type Entry, type State, type Status } from "@/lib/types";
+import type { Deadline, Entry, State } from "@/lib/types";
 import { TriageView } from "./TriageView";
-import { Avatar, btnGhost, Card, Countdown, cx, inputCls, PageHeader, StatusPill, UrgencyPill } from "./ui";
+import { Avatar, btnGhost, Card, Countdown, cx, inputCls, PageHeader, StatusSelect, UrgencyPill } from "./ui";
 
 interface Props {
   s: State;
@@ -113,7 +114,10 @@ export function Register({ s, act, today }: Props) {
 
       <Card className="overflow-hidden">
         <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-[1fr_12rem_auto]">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search ref, sender, subject… / بحث" className={inputCls} dir="auto" />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search ref, sender, subject… / بحث" className={cx(inputCls, "pl-9")} dir="auto" />
+          </div>
           <select value={project} onChange={(e) => setProject(e.target.value)} className={inputCls}>
             <option value="">All projects</option>
             {projects.map((p) => (
@@ -123,7 +127,7 @@ export function Register({ s, act, today }: Props) {
             ))}
           </select>
           <button onClick={exportCsv} className={btnGhost}>
-            Export CSV
+            <Download className="size-4" /> Export CSV
           </button>
         </div>
 
@@ -153,10 +157,13 @@ export function Register({ s, act, today }: Props) {
                         onClick={() => setOpen(isOpen ? null : e.id)}
                         className={cx("cursor-pointer border-b border-line align-top transition hover:bg-paper/70", isOpen && "bg-paper/70")}
                       >
-                        <td className="px-4 py-3">
-                          <div className="font-mono text-xs font-semibold">{e.id}</div>
-                          <div className="mt-0.5 text-xs text-faint">{formatDate(e.receivedAt)}</div>
-                          <div className="text-xs text-faint">{e.channel}</div>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <ChevronRight className={cx("size-3.5 text-faint transition", isOpen && "rotate-90 text-ink")} />
+                            <span className="font-mono text-xs font-semibold">{e.id}</span>
+                          </div>
+                          <div className="mt-1 pl-5 text-xs text-faint">{formatDate(e.receivedAt)}</div>
+                          <div className="pl-5 text-xs text-faint">{e.channel}</div>
                         </td>
                         <td className="max-w-md px-4 py-3">
                           <div dir="auto" className="text-left font-medium leading-snug">
@@ -174,33 +181,23 @@ export function Register({ s, act, today }: Props) {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <Avatar member={owner} size="sm" />
-                            <span className="text-xs">{owner?.name ?? e.routeTo}</span>
+                            <span className="whitespace-nowrap text-xs">{owner?.name ?? e.routeTo}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           {d ? (
                             <div className="space-y-1">
                               <Countdown due={d.dueDate} today={today} muted={d.owner !== "us"} />
-                              <div className="max-w-44 text-xs leading-snug text-muted">{d.description}</div>
+                              <div className="line-clamp-2 max-w-48 text-xs leading-snug text-muted" title={d.description}>
+                                {d.description}
+                              </div>
                             </div>
                           ) : (
                             <span className="text-xs text-faint">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
-                          <select
-                            value={e.status}
-                            onChange={(ev) => act.setStatus(e.id, ev.target.value as Status)}
-                            className="rounded-md border border-transparent bg-transparent text-xs hover:border-line"
-                            aria-label={`Status of ${e.id}`}
-                          >
-                            {STATUSES.map((s) => (
-                              <option key={s}>{s}</option>
-                            ))}
-                          </select>
-                          <div className="mt-1">
-                            <StatusPill status={e.status} />
-                          </div>
+                          <StatusSelect value={e.status} onChange={(st) => act.setStatus(e.id, st)} label={`Status of ${e.id}`} />
                         </td>
                       </tr>
                       {isOpen && (

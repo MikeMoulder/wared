@@ -1,12 +1,12 @@
 "use client";
 
-import { LogIn, LogOut, Mail, Sparkles, UserPlus } from "lucide-react";
+import { Bot, DoorOpen, LoaderCircle, LogIn, LogOut, Mail, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { formatTime, formatWhen, localDay } from "@/lib/dates";
 import { ROOMS } from "@/lib/seed";
 import type { Actions } from "@/lib/store";
 import type { State, Visitor } from "@/lib/types";
-import { Avatar, btnPrimary, Card, cx, inputCls, Label, PageHeader, Pill } from "./ui";
+import { Avatar, btnPrimary, Card, CardHeader, cx, inputCls, Label, PageHeader, Pill } from "./ui";
 
 interface Props {
   s: State;
@@ -110,23 +110,37 @@ function Group({
         ) : (
           <ul className="divide-y divide-line">
             {list.map((v) => (
-              <li key={v.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-                <div className="w-16 shrink-0 text-sm font-semibold tabular-nums">{formatTime(v.expectedAt)}</div>
+              <li key={v.id} className="flex items-start gap-4 px-5 py-3.5">
+                <div className="w-14 shrink-0 pt-0.5">
+                  <div className="text-sm font-semibold tabular-nums">{formatTime(v.expectedAt)}</div>
+                  {showDay && <div className="text-[11px] text-faint">{formatWhen(v.expectedAt, today).split(",")[0]}</div>}
+                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium" dir="auto">
-                    {v.name} <span className="font-normal text-muted">· {v.company}</span>
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-sm font-medium" dir="auto">
+                      {v.name}
+                    </span>
+                    <span className="text-xs text-muted" dir="auto">
+                      {v.company}
+                    </span>
                   </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                    <Avatar member={name(v.host)} size="sm" />
-                    {name(v.host)?.name} · {v.purpose}
-                    {v.room && <Pill className="border-line text-muted">{v.room}</Pill>}
-                    {showDay && <span className="text-faint">· {formatWhen(v.expectedAt, today)}</span>}
-                    {v.arrivedAt && v.status === "on-site" && <span className="text-emerald-700">· arrived {formatTime(v.arrivedAt)}</span>}
-                    {v.status === "left" && v.leftAt && <span className="text-faint">· left {formatTime(v.leftAt)}</span>}
-                    {v.status === "no-show" && <span className="text-faint">· no-show</span>}
+                  {v.purpose && <p className="mt-0.5 truncate text-xs text-muted">{v.purpose}</p>}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white py-0.5 pl-0.5 pr-2" title="Host">
+                      <Avatar member={name(v.host)} size="sm" />
+                      {name(v.host)?.name}
+                    </span>
+                    {v.room && (
+                      <Pill className="border-line bg-paper py-1 text-[11px] text-muted">
+                        <DoorOpen className="size-3" /> {v.room}
+                      </Pill>
+                    )}
+                    {v.arrivedAt && v.status === "on-site" && <span className="font-medium text-emerald-700">Arrived {formatTime(v.arrivedAt)}</span>}
+                    {v.status === "left" && v.leftAt && <span className="text-faint">Left {formatTime(v.leftAt)}</span>}
+                    {v.status === "no-show" && <span className="text-faint">No-show</span>}
                   </div>
                 </div>
-                {children && <div className="flex items-center gap-2">{children(v)}</div>}
+                {children && <div className="flex shrink-0 items-center gap-2 self-center">{children(v)}</div>}
               </li>
             ))}
           </ul>
@@ -197,30 +211,35 @@ function AddVisitor({ s, act, today }: Props) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-5">
-        <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-accent" />
-          <Label>Quick add with AI</Label>
+      <Card className="overflow-hidden">
+        <CardHeader icon={Bot} title="Quick add with AI" />
+        <div className="p-5">
+          <textarea
+            dir="auto"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && note.trim() && !busy) {
+                e.preventDefault();
+                parse();
+              }
+            }}
+            rows={3}
+            placeholder="e.g. Eng. Sami from Petra Structures is coming tomorrow at 2pm to see Lina about the DSR arbitration, boardroom"
+            className={cx(inputCls, "resize-y leading-relaxed")}
+          />
+          <button onClick={parse} disabled={!note.trim() || busy} className={cx(btnPrimary, "mt-2 w-full py-2")}>
+            {busy ? <LoaderCircle className="size-4 animate-spin" /> : <Bot className="size-4" />}
+            {busy ? "Reading…" : "Fill the form"}
+          </button>
+          <p className="mt-2 text-[11px] text-faint">Works in English or Arabic. Check the details before saving.</p>
         </div>
-        <textarea
-          dir="auto"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={3}
-          placeholder="e.g. Eng. Sami from Petra Structures is coming tomorrow at 2pm to see Lina about the DSR arbitration, boardroom"
-          className={cx(inputCls, "mt-3 resize-y")}
-        />
-        <button onClick={parse} disabled={!note.trim() || busy} className={cx(btnPrimary, "mt-2 w-full py-2")}>
-          {busy ? "Reading…" : "Fill the form"}
-        </button>
       </Card>
 
-      <Card className="p-5">
-        <div className="flex items-center gap-2">
-          <UserPlus className="size-4 text-muted" />
-          <Label>Visitor details</Label>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+      <Card className="overflow-hidden">
+        <CardHeader icon={UserPlus} title="Visitor details" />
+        <div className="p-5">
+        <div className="grid grid-cols-2 gap-2">
           <input value={f.name} onChange={set("name")} placeholder="Visitor name" className={cx(inputCls, "col-span-2")} dir="auto" />
           <input value={f.company} onChange={set("company")} placeholder="Company" className={cx(inputCls, "col-span-2")} dir="auto" />
           <label className="text-xs text-muted">
@@ -278,6 +297,7 @@ function AddVisitor({ s, act, today }: Props) {
           <button onClick={() => submit(true)} className="rounded-lg bg-ink px-3 py-2 text-sm font-medium text-white hover:bg-ink/85">
             Walk-in · check in now
           </button>
+        </div>
         </div>
       </Card>
     </div>
