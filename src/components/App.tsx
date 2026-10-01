@@ -74,7 +74,7 @@ export default function App() {
             Ask Wared
           </button>
           <p className="mt-3 px-1 text-[11px] leading-relaxed text-faint">
-            Built as an application for the Front Desk &amp; AI Operator role. All sample data is fictional.
+            <Credit /> All sample data is fictional.
           </p>
         </div>
       </aside>
@@ -115,10 +115,31 @@ export default function App() {
           {tab === "audit" && <AuditLog s={s} today={today} />}
           {tab === "settings" && <Settings s={s} act={act} />}
         </main>
+
+        <footer className="border-t border-line px-4 py-4 text-xs text-faint lg:hidden">
+          <Credit /> All sample data is fictional.
+        </footer>
       </div>
 
       <Assistant open={assistant.open} request={assistant} onClose={() => setAssistant((a) => ({ ...a, open: false }))} s={s} act={act} today={today} />
     </div>
+  );
+}
+
+function Credit() {
+  return (
+    <>
+      Built by{" "}
+      <a
+        href="https://www.linkedin.com/in/ogundejimichael/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-muted underline decoration-line underline-offset-2 hover:text-ink"
+      >
+        Michael Ogundeji
+      </a>{" "}
+      as an application for the Front Desk &amp; AI Operator role.
+    </>
   );
 }
 

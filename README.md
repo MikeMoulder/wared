@@ -2,6 +2,8 @@
 
 > Run the front desk. Then automate it.
 
+**Live demo:** https://wared-nine.vercel.app · Built by [Michael Ogundeji](https://www.linkedin.com/in/ogundejimichael/) as an application for the Front Desk & AI Operator role at Construction Management Associates.
+
 **Wared** (Arabic for "incoming", as in *سجل الوارد*, the incoming correspondence register) handles the administrative work that reaches a construction management office: letters, emails, WhatsApp messages, phone calls and visitors. It understands each item, does the routine work itself, sends exceptions to a person, and records everything.
 
 It is not a chatbot. It is a workflow with AI at the intake step and fixed rules at the decision step.
