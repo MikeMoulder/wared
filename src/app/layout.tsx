@@ -19,9 +19,9 @@ const arabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "Wared · AI incoming register",
+  title: "Wared · AI front-desk operator",
   description:
-    "Bilingual AI intake for construction offices. Reads Arabic and English letters, emails and WhatsApp messages, routes each item, tracks contractual deadlines and drafts acknowledgements.",
+    "An AI operator for construction office front desks. Reads Arabic and English correspondence, calls and visitor notes, handles routine work automatically, sends exceptions for human approval and records every action.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
