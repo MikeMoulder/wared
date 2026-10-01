@@ -97,7 +97,7 @@ export function Assistant({ open, request, onClose, s, act, today }: Props) {
       <div onClick={onClose} className={cx("fixed inset-0 z-30 bg-ink/20 transition-opacity", open ? "opacity-100" : "pointer-events-none opacity-0")} />
       <aside
         className={cx(
-          "fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl transition-[transform,visibility] duration-200",
+          "fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl transition-[translate,visibility] duration-200",
           open ? "visible translate-x-0" : "invisible translate-x-full",
         )}
         aria-hidden={!open}
