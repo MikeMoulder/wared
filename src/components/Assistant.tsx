@@ -177,7 +177,7 @@ export function Assistant({ open, request, onClose, s, act, today }: Props) {
                       m.error ? "bg-red-50 text-red-700" : "bg-paper",
                     )}
                   >
-                    {m.text}
+                    {m.error ? m.text : <RichText text={m.text} />}
                   </div>
                   {m.followUp && (
                     <FollowUpCard
@@ -244,6 +244,23 @@ export function Assistant({ open, request, onClose, s, act, today }: Props) {
           <p className="mt-1.5 px-1 text-[11px] text-faint">Enter to send · Shift + Enter for a new line</p>
         </form>
       </aside>
+    </>
+  );
+}
+
+// Answers are plain text, but models sometimes add **bold**; show it as bold rather than asterisks.
+function RichText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+        /^\*\*[^*]+\*\*$/.test(part) ? (
+          <strong key={i} className="font-semibold">
+            {part.slice(2, -2)}
+          </strong>
+        ) : (
+          part
+        ),
+      )}
     </>
   );
 }

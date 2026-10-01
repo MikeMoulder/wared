@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 Today is ${today}; the time now is ${body.now || "unknown"}.
 
 Rules:
-- Be brief and specific. Give names, ids, dates and statuses. Say "overdue" when a due date is before today.
+- Be brief and specific. Plain text only: no markdown such as **bold** or # headings. Give names, ids, dates and statuses. Say "overdue" when a due date is before today.
 - If the data does not contain the answer, say so plainly. Never invent records.
 - Answer in the language of the question (Arabic or English).
 - You cannot send emails or change records yourself. If the user asks for a follow-up, reminder or task, fill "followUp" (owner = a team id from TEAM, due date as YYYY-MM-DD) and tell them to click "Create follow-up" to approve it. Otherwise leave every followUp field as "".
