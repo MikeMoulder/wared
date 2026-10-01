@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, DoorOpen, Inbox, LayoutDashboard, ListChecks, ScrollText, Settings as SettingsIcon, ShieldCheck, Sparkles } from "lucide-react";
+import { BookOpen, Bot, DoorOpen, Inbox, LayoutDashboard, ListChecks, ScrollText, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { todayIso } from "@/lib/dates";
 import { computeMetrics } from "@/lib/metrics";
@@ -27,15 +27,15 @@ export default function App() {
 
   const ask = (prompt?: string) => setAssistant((a) => ({ open: true, prompt, nonce: a.nonce + 1 }));
 
-  const nav: { key: Tab; label: string; icon: ComponentType<{ className?: string }>; badge?: number; alert?: boolean }[] = [
-    { key: "home", label: "Command Center", icon: LayoutDashboard },
-    { key: "intake", label: "Intake", icon: Inbox },
-    { key: "approvals", label: "Approvals", icon: ShieldCheck, badge: m.pendingApprovals, alert: true },
-    { key: "register", label: "Register", icon: BookOpen },
-    { key: "followups", label: "Follow-ups", icon: ListChecks, badge: m.overdueTasks, alert: true },
-    { key: "visitors", label: "Visitors", icon: DoorOpen, badge: m.onSite },
-    { key: "audit", label: "Audit log", icon: ScrollText },
-    { key: "settings", label: "Team & projects", icon: SettingsIcon },
+  const nav: { key: Tab; label: string; icon: ComponentType<{ className?: string }>; badge?: number; alert?: boolean; group: string }[] = [
+    { key: "home", label: "Command Center", icon: LayoutDashboard, group: "Operate" },
+    { key: "intake", label: "Intake", icon: Inbox, group: "Operate" },
+    { key: "approvals", label: "Approvals", icon: ShieldCheck, badge: m.pendingApprovals, alert: true, group: "Operate" },
+    { key: "register", label: "Register", icon: BookOpen, group: "Records" },
+    { key: "followups", label: "Follow-ups", icon: ListChecks, badge: m.overdueTasks, alert: true, group: "Records" },
+    { key: "visitors", label: "Visitors", icon: DoorOpen, badge: m.onSite, group: "Records" },
+    { key: "audit", label: "Audit log", icon: ScrollText, group: "Records" },
+    { key: "settings", label: "Team & projects", icon: SettingsIcon, group: "Setup" },
   ];
 
   return (
@@ -43,13 +43,14 @@ export default function App() {
       {/* Sidebar (desktop) */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface lg:flex">
         <Brand />
-        <nav className="flex-1 space-y-0.5 px-3 py-2">
-          {nav.map((n) => (
+        <nav className="scroll-thin flex-1 overflow-y-auto px-3 py-2">
+          {nav.map((n, i) => (
+            <div key={n.key}>
+              {nav[i - 1]?.group !== n.group && <div className={cx("px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-faint", i > 0 ? "pt-5" : "pt-1")}>{n.group}</div>}
             <button
-              key={n.key}
               onClick={() => setTab(n.key)}
               className={cx(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+                "mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
                 tab === n.key ? "bg-ink text-white" : "text-muted hover:bg-paper hover:text-ink",
               )}
             >
@@ -66,12 +67,21 @@ export default function App() {
                 </span>
               )}
             </button>
+            </div>
           ))}
         </nav>
-        <div className="p-3">
-          <button onClick={() => ask()} className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2.5 text-sm font-medium hover:border-ink/30">
-            <Sparkles className="size-4 text-accent" />
-            Ask Wared
+        <div className="border-t border-line p-3">
+          <button
+            onClick={() => ask()}
+            className="group flex w-full items-center gap-3 rounded-xl bg-accent-soft/70 px-3 py-2.5 text-left transition hover:bg-accent-soft"
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-white text-accent shadow-[0_1px_2px_rgba(27,26,23,0.08)]">
+              <Bot className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-ink">Ask Wared</span>
+              <span className="block truncate text-[11px] text-muted">Questions about the office</span>
+            </span>
           </button>
           <p className="mt-3 px-1 text-[11px] leading-relaxed text-faint">
             <Credit /> All sample data is fictional.
@@ -85,7 +95,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <Brand />
             <button onClick={() => ask()} className="mr-4 flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium">
-              <Sparkles className="size-4 text-accent" /> Ask
+              <Bot className="size-4 text-accent" /> Ask
             </button>
           </div>
           <nav className="scroll-thin flex gap-1 overflow-x-auto px-4 pb-2">

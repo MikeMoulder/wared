@@ -1,8 +1,9 @@
 "use client";
 
+import { Bot, ChevronDown, UserRound, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { countdownLabel, formatDate } from "@/lib/dates";
-import type { Member, Status, Urgency } from "@/lib/types";
+import { STATUSES, type Member, type Status, type Urgency } from "@/lib/types";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -14,6 +15,40 @@ export function Card({ children, className }: { children: ReactNode; className?:
 
 export function Label({ children }: { children: ReactNode }) {
   return <div className="text-[11px] font-medium uppercase tracking-wider text-faint">{children}</div>;
+}
+
+// Standard header row for a card: optional icon, small caps title, optional right-hand content.
+export function CardHeader({ icon: Icon, title, right, className }: { icon?: LucideIcon; title: ReactNode; right?: ReactNode; className?: string }) {
+  return (
+    <div className={cx("flex min-h-12 items-center justify-between gap-3 border-b border-line px-5 py-2.5", className)}>
+      <div className="flex min-w-0 items-center gap-2">
+        {Icon && <Icon className="size-4 shrink-0 text-faint" />}
+        <Label>{title}</Label>
+      </div>
+      {right && <div className="flex shrink-0 items-center gap-2">{right}</div>}
+    </div>
+  );
+}
+
+// Two-option segmented toggle, used for English / Arabic switches.
+export function Segmented<T extends string>({ value, options, onChange, disabled }: { value: T; options: [T, string][]; onChange: (v: T) => void; disabled?: T[] }) {
+  return (
+    <div className="flex rounded-lg border border-line bg-paper p-0.5 text-xs">
+      {options.map(([v, label]) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          disabled={disabled?.includes(v)}
+          className={cx(
+            "rounded-md px-2.5 py-0.5 font-medium transition disabled:opacity-30",
+            value === v ? "bg-white text-ink shadow-[0_1px_2px_rgba(27,26,23,0.08)] ring-1 ring-line" : "text-muted hover:text-ink",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function Pill({ children, className, title }: { children: ReactNode; className?: string; title?: string }) {
@@ -54,6 +89,25 @@ export function StatusPill({ status }: { status: Status }) {
   return <Pill className={STATUS_STYLE[status]}>{status}</Pill>;
 }
 
+// A status badge that is also the control for changing it.
+export function StatusSelect({ value, onChange, label }: { value: Status; onChange: (s: Status) => void; label: string }) {
+  return (
+    <span className="relative inline-flex">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as Status)}
+        aria-label={label}
+        className={cx("cursor-pointer appearance-none rounded-full border py-0.5 pl-2.5 pr-6 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-ink/20", STATUS_STYLE[value])}
+      >
+        {STATUSES.map((x) => (
+          <option key={x}>{x}</option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 size-3 -translate-y-1/2 opacity-60" />
+    </span>
+  );
+}
+
 export function Countdown({ due, today, muted }: { due: string; today: string; muted?: boolean }) {
   const { label, tone } = countdownLabel(due, today);
   const cls = muted
@@ -88,7 +142,7 @@ export function Avatar({ member, size = "md" }: { member?: Member; size?: "sm" |
   );
 }
 
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({ text, label = "Copy", className }: { text: string; label?: string; className?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
@@ -100,7 +154,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
           setTimeout(() => setDone(false), 1500);
         } catch {}
       }}
-      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-muted hover:border-ink/30 hover:text-ink"
+      className={cx("rounded-md border border-line bg-white px-2.5 py-1 text-xs font-medium text-muted hover:border-ink/30 hover:text-ink", className)}
     >
       {done ? "Copied" : label}
     </button>
@@ -109,9 +163,13 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
 
 export function ActorBadge({ actor }: { actor: "ai" | "human" }) {
   return actor === "ai" ? (
-    <Pill className="border-accent/25 bg-accent-soft text-accent">AI</Pill>
+    <Pill className="border-accent/25 bg-accent-soft text-accent">
+      <Bot className="size-3" /> AI
+    </Pill>
   ) : (
-    <Pill className="border-navy/20 bg-navy/5 text-navy">Human</Pill>
+    <Pill className="border-navy/20 bg-navy/5 text-navy">
+      <UserRound className="size-3" /> Human
+    </Pill>
   );
 }
 

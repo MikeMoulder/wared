@@ -19,6 +19,12 @@ html {
   color-scheme: light;
 }
 
+/* Off-canvas panels must never make the page scroll sideways. */
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);

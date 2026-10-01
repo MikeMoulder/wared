@@ -1,6 +1,6 @@
 "use client";
 
-import { ListChecks, Send, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Bot, ListChecks, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatDate } from "@/lib/dates";
 import { snapshot } from "@/lib/snapshot";
@@ -97,67 +97,113 @@ export function Assistant({ open, request, onClose, s, act, today }: Props) {
       <div onClick={onClose} className={cx("fixed inset-0 z-30 bg-ink/20 transition-opacity", open ? "opacity-100" : "pointer-events-none opacity-0")} />
       <aside
         className={cx(
-          "fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl transition-transform duration-200",
-          open ? "translate-x-0" : "translate-x-full",
+          "fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl transition-[transform,visibility] duration-200",
+          open ? "visible translate-x-0" : "invisible translate-x-full",
         )}
         aria-hidden={!open}
       >
-        <div className="flex items-center gap-2 border-b border-line px-5 py-4">
-          <Sparkles className="size-4 text-accent" />
-          <div className="flex-1">
-            <div className="font-semibold">Ask Wared</div>
-            <div className="text-xs text-muted">Answers from the register, follow-ups, visitors and audit log</div>
+        <div className="flex items-center gap-3 border-b border-line px-5 py-3.5">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+            <Bot className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold leading-tight">Ask Wared</div>
+            <div className="truncate text-xs text-muted">Answers from the register, follow-ups, visitors and audit log</div>
           </div>
+          {msgs.length > 0 && (
+            <button
+              onClick={() => setMsgs([])}
+              disabled={busy}
+              className="rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-paper hover:text-ink disabled:opacity-40"
+            >
+              New chat
+            </button>
+          )}
           <button onClick={onClose} className="rounded-md p-1 text-muted hover:bg-paper hover:text-ink" aria-label="Close assistant">
             <X className="size-5" />
           </button>
         </div>
 
-        <div className="scroll-thin flex-1 space-y-4 overflow-y-auto px-5 py-5">
+        <div className="scroll-thin flex-1 space-y-5 overflow-y-auto px-5 py-5">
           {msgs.length === 0 && (
-            <div>
-              <p className="text-sm text-muted">Ask about anything the office has on record, in English or Arabic.</p>
-              <div className="mt-4 flex flex-col gap-2">
+            <div className="pt-4">
+              <div className="flex flex-col items-center text-center">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+                  <Bot className="size-6" />
+                </span>
+                <h3 className="mt-3 font-semibold">How can I help?</h3>
+                <p className="mt-1 max-w-xs text-sm text-muted">Ask about anything the office has on record, in English or Arabic.</p>
+              </div>
+              <div className="mt-6 text-[11px] font-medium uppercase tracking-wider text-faint">Try asking</div>
+              <div className="mt-2 flex flex-col gap-1.5">
                 {SUGGESTIONS.map((q) => (
-                  <button key={q} dir="auto" onClick={() => send(q)} className="rounded-lg border border-line px-3 py-2 text-left text-sm hover:border-ink/30 hover:bg-paper">
-                    {q}
+                  <button
+                    key={q}
+                    onClick={() => send(q)}
+                    className="group flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm transition hover:border-ink/25 hover:bg-paper"
+                  >
+                    <span dir="auto" className="flex-1 text-start">
+                      {q}
+                    </span>
+                    <ArrowUpRight className="size-3.5 shrink-0 text-faint transition group-hover:text-ink" />
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {msgs.map((m, i) => (
-            <div key={i} className={cx("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-              <div className={cx("max-w-[90%] space-y-2", m.role === "user" && "text-right")}>
-                <div
-                  dir="auto"
-                  className={cx(
-                    "inline-block whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-left text-sm leading-relaxed",
-                    m.role === "user" ? "rounded-br-sm bg-ink text-white" : m.error ? "bg-red-50 text-red-700" : "rounded-bl-sm bg-paper",
-                  )}
-                >
+          {msgs.map((m, i) =>
+            m.role === "user" ? (
+              <div key={i} className="flex justify-end">
+                <div dir="auto" className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-ink px-4 py-2.5 text-sm leading-relaxed text-white">
                   {m.text}
                 </div>
-                {m.followUp && (
-                  <FollowUpCard
-                    f={m.followUp}
-                    s={s}
-                    created={!!m.created}
-                    onCreate={() => {
-                      act.addTask({ ...m.followUp!, createdBy: "ai" }, "assistant");
-                      setMsgs((all) => all.map((x, j) => (j === i ? { ...x, created: true } : x)));
-                    }}
-                  />
-                )}
               </div>
-            </div>
-          ))}
+            ) : (
+              <div key={i} className="flex gap-2.5">
+                <span
+                  className={cx(
+                    "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full",
+                    m.error ? "bg-red-50 text-red-600" : "bg-accent-soft text-accent",
+                  )}
+                >
+                  <Bot className="size-4" />
+                </span>
+                <div className="min-w-0 max-w-[88%] space-y-2">
+                  <div
+                    dir="auto"
+                    className={cx(
+                      "whitespace-pre-wrap rounded-2xl rounded-tl-md px-4 py-2.5 text-sm leading-relaxed",
+                      m.error ? "bg-red-50 text-red-700" : "bg-paper",
+                    )}
+                  >
+                    {m.text}
+                  </div>
+                  {m.followUp && (
+                    <FollowUpCard
+                      f={m.followUp}
+                      s={s}
+                      created={!!m.created}
+                      onCreate={() => {
+                        act.addTask({ ...m.followUp!, createdBy: "ai" }, "assistant");
+                        setMsgs((all) => all.map((x, j) => (j === i ? { ...x, created: true } : x)));
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            ),
+          )}
           {busy && (
-            <div className="flex gap-1 px-2 py-2">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="size-1.5 animate-bounce rounded-full bg-faint" style={{ animationDelay: `${i * 120}ms` }} />
-              ))}
+            <div className="flex gap-2.5">
+              <span className="flex size-7 items-center justify-center rounded-full bg-accent-soft text-accent">
+                <Bot className="size-4" />
+              </span>
+              <div className="flex items-center gap-1 rounded-2xl rounded-tl-md bg-paper px-4 py-3">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="size-1.5 animate-bounce rounded-full bg-faint" style={{ animationDelay: `${i * 120}ms` }} />
+                ))}
+              </div>
             </div>
           )}
           <div ref={endRef} />
@@ -168,26 +214,34 @@ export function Assistant({ open, request, onClose, s, act, today }: Props) {
             e.preventDefault();
             send(input);
           }}
-          className="flex items-end gap-2 border-t border-line p-4"
+          className="border-t border-line p-4"
         >
-          <textarea
-            ref={inputRef}
-            dir="auto"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send(input);
-              }
-            }}
-            rows={1}
-            placeholder="Ask about items, follow-ups, visitors…"
-            className="max-h-32 min-h-10 flex-1 resize-none rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink/40"
-          />
-          <button type="submit" disabled={!input.trim() || busy} className="flex size-10 items-center justify-center rounded-lg bg-ink text-white disabled:opacity-40" aria-label="Send">
-            <Send className="size-4" />
-          </button>
+          <div className="flex items-end gap-2 rounded-xl border border-line bg-white p-1.5 pl-3 transition focus-within:border-ink/40 focus-within:ring-2 focus-within:ring-ink/5">
+            <textarea
+              ref={inputRef}
+              dir="auto"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+              rows={1}
+              placeholder="Ask about items, follow-ups, visitors…"
+              className="max-h-32 min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-faint"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || busy}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-ink text-white transition disabled:bg-ink/20"
+              aria-label="Send"
+            >
+              <Send className="size-4" />
+            </button>
+          </div>
+          <p className="mt-1.5 px-1 text-[11px] text-faint">Enter to send · Shift + Enter for a new line</p>
         </form>
       </aside>
     </>
