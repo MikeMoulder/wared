@@ -1,14 +1,30 @@
 "use client";
 
-import { Bot, Check, ShieldCheck } from "lucide-react";
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  FileText,
+  Hand,
+  LoaderCircle,
+  Mail,
+  MessageCircle,
+  Paperclip,
+  Phone,
+  ShieldCheck,
+  Truck,
+  Upload,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { samples } from "@/lib/seed";
+import { samples, type Sample } from "@/lib/seed";
 import type { Actions } from "@/lib/store";
 import { CHANNELS, type Channel, type State, type Triage } from "@/lib/types";
 import { planWorkflow, type Plan } from "@/lib/workflow";
 import type { Tab } from "./App";
 import { TriageView } from "./TriageView";
-import { btnPrimary, Card, cx, inputCls, Label, PageHeader } from "./ui";
+import { Card, cx, inputCls, Label, PageHeader } from "./ui";
 
 interface Props {
   s: State;
@@ -17,9 +33,39 @@ interface Props {
   go: (t: Tab) => void;
 }
 
-type Attached = { name: string; mimeType: string; data: string; preview?: string };
+type Attached = { name: string; mimeType: string; data: string; size: number; preview?: string };
 
 const STEPS = ["Reading the document", "Identifying sender and project", "Checking contractual deadlines", "Choosing an owner", "Drafting acknowledgements"];
+
+const CHANNEL_ICON: Record<Channel, LucideIcon> = {
+  Email: Mail,
+  Letter: FileText,
+  WhatsApp: MessageCircle,
+  "Phone call": Phone,
+  "Hand delivered": Hand,
+  Courier: Truck,
+};
+
+const CHANNEL_SHORT: Record<Channel, string> = {
+  Email: "Email",
+  Letter: "Letter",
+  WhatsApp: "WhatsApp",
+  "Phone call": "Call",
+  "Hand delivered": "By hand",
+  Courier: "Courier",
+};
+
+// Rough script detection so the operator can see what the AI will be reading.
+function detectLanguage(text: string): "Arabic" | "English" | "Arabic + English" | null {
+  const ar = (text.match(/[؀-ۿ]/g) ?? []).length;
+  const en = (text.match(/[A-Za-z]/g) ?? []).length;
+  if (ar + en < 12) return null;
+  if (ar > en * 4) return "Arabic";
+  if (en > ar * 4) return "English";
+  return "Arabic + English";
+}
+
+const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 export function Intake({ s, act, today, go }: Props) {
   const [text, setText] = useState("");
@@ -28,16 +74,24 @@ export function Intake({ s, act, today, go }: Props) {
   const [receivedAt, setReceivedAt] = useState(today);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Triage | null>(null);
   const [done, setDone] = useState<Plan | null>(null);
   const [drag, setDrag] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const sampleList = useMemo(() => samples(today), [today]);
 
   useEffect(() => {
     if (!loading) return;
-    const id = setInterval(() => setStep((x) => Math.min(x + 1, STEPS.length - 1)), 2200);
+    const started = Date.now();
+    const id = setInterval(() => {
+      const secs = Math.floor((Date.now() - started) / 1000);
+      setElapsed(secs);
+      setStep(Math.min(Math.floor(secs / 2.2), STEPS.length - 1));
+    }, 250);
     return () => clearInterval(id);
   }, [loading]);
 
@@ -46,10 +100,13 @@ export function Intake({ s, act, today, go }: Props) {
     () => (result && !done ? planWorkflow(result, s, { channel, receivedAt, original }, new Date(), today) : null),
     [result, done, s, channel, receivedAt, original, today],
   );
+  const language = detectLanguage(text);
+  const canRun = !loading && (text.trim().length > 0 || !!file);
+  const shown = done ? done.entry : result;
 
   async function attach(f: File) {
     setError("");
-    if (f.size > 3 * 1024 * 1024) return setError("File is larger than 3 MB.");
+    if (f.size > 3 * 1024 * 1024) return setError("That file is larger than 3 MB.");
     if (f.type === "text/plain") return setText(await f.text());
     if (!/^(image\/(png|jpeg|webp|heic|heif)|application\/pdf)$/.test(f.type)) return setError("Use a PNG/JPEG/WebP image, a PDF or a .txt file.");
     const data = await new Promise<string>((resolve, reject) => {
@@ -58,12 +115,14 @@ export function Intake({ s, act, today, go }: Props) {
       r.onerror = reject;
       r.readAsDataURL(f);
     });
-    setFile({ name: f.name, mimeType: f.type, data, preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined });
+    setFile({ name: f.name, mimeType: f.type, data, size: f.size, preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined });
   }
 
   async function run() {
+    if (!canRun) return;
     setLoading(true);
     setStep(0);
+    setElapsed(0);
     setError("");
     setResult(null);
     setDone(null);
@@ -95,129 +154,208 @@ export function Intake({ s, act, today, go }: Props) {
     setReceivedAt(today);
   }
 
+  function loadSample(x: Sample) {
+    setText(x.text);
+    setFile(null);
+    setChannel(x.channel);
+    setReceivedAt(today);
+    setResult(null);
+    setDone(null);
+    setError("");
+    // Show the sample from its first line, ready to edit or analyse.
+    setTimeout(() => {
+      const el = textRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(0, 0);
+      el.scrollTop = 0;
+    }, 0);
+  }
+
   function execute() {
     if (!plan) return;
     act.runPlan(plan);
     setDone(plan);
   }
 
-  const canRun = !loading && (text.trim().length > 0 || !!file);
-  const shown = done ? done.entry : result;
-
   return (
     <div>
       <PageHeader title="Intake" sub="Paste, drop or forward anything that arrives. Wared reads it, plans the work and waits for you only where it must." />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* Input column */}
-        <div className="space-y-4">
-          <Card className="p-5">
-            <div className="flex items-center justify-between">
-              <Label>New incoming item</Label>
-              {(text || file || result) && (
-                <button onClick={reset} className="text-xs font-medium text-muted hover:text-ink">
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="text-xs text-muted">
-                Channel
-                <select value={channel} onChange={(e) => setChannel(e.target.value as Channel)} className={cx(inputCls, "mt-1")}>
-                  {CHANNELS.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs text-muted">
-                Received
-                <input type="date" value={receivedAt} max={today} onChange={(e) => setReceivedAt(e.target.value || today)} className={cx(inputCls, "mt-1")} />
-              </label>
-            </div>
-
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDrag(true);
-              }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDrag(false);
-                const f = e.dataTransfer.files[0];
-                if (f) attach(f);
-              }}
-              className={cx("relative mt-3 rounded-lg transition", drag && "ring-2 ring-accent ring-offset-2")}
-            >
-              <textarea
-                dir="auto"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={"Paste an email, letter, WhatsApp message or call note (Arabic or English)…\n\nor drop a scanned letter / PDF here"}
-                rows={12}
-                className={cx(inputCls, "scroll-thin resize-y leading-relaxed")}
-              />
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,application/pdf,text/plain"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) attach(f);
-                  e.target.value = "";
-                }}
-              />
-              {file ? (
-                <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-paper py-1 pl-1 pr-2 text-xs">
-                  {file.preview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={file.preview} alt="" className="size-7 rounded object-cover" />
-                  ) : (
-                    <span className="flex size-7 items-center justify-center rounded bg-red-100 text-[10px] font-bold text-red-700">PDF</span>
-                  )}
-                  <span className="truncate">{file.name}</span>
-                  <button onClick={() => setFile(null)} className="text-faint hover:text-ink" aria-label="Remove file">
-                    ✕
+        <div className="min-w-0">
+          <Card className="overflow-hidden lg:sticky lg:top-6">
+            <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
+              <span className="whitespace-nowrap">
+                <Label>New item</Label>
+              </span>
+              <div className="flex items-center gap-1">
+                <div className="relative">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const x = sampleList[Number(e.target.value)];
+                      if (x) loadSample(x);
+                    }}
+                    className="w-[6.75rem] appearance-none truncate rounded-md bg-transparent py-1 pl-2 pr-6 text-xs font-medium text-muted hover:bg-paper hover:text-ink"
+                    aria-label="Load a sample item"
+                  >
+                    <option value="" disabled>
+                      Load sample
+                    </option>
+                    {sampleList.map((x, i) => (
+                      <option key={x.label} value={i}>
+                        {x.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+                </div>
+                {(text || file || result) && (
+                  <button onClick={reset} className="rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-paper hover:text-ink">
+                    Clear
                   </button>
-                </span>
-              ) : (
-                <button onClick={() => fileRef.current?.click()} className="text-xs font-medium text-muted underline-offset-2 hover:text-ink hover:underline">
-                  + Attach scan, photo or PDF
-                </button>
-              )}
+                )}
+              </div>
             </div>
 
-            <button onClick={run} disabled={!canRun} className={cx(btnPrimary, "mt-4 w-full")}>
-              {loading ? "Reading…" : "Analyse item"}
-            </button>
-            {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          </Card>
+            <div className="space-y-4 p-5">
+              {/* Channel */}
+              <div>
+                <div className="mb-1.5 text-xs font-medium text-muted">Arrived by</div>
+                <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Channel">
+                  {CHANNELS.map((c) => {
+                    const Icon = CHANNEL_ICON[c];
+                    const on = channel === c;
+                    return (
+                      <button
+                        key={c}
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setChannel(c)}
+                        className={cx(
+                          "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition",
+                          on ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:border-ink/30 hover:text-ink",
+                        )}
+                      >
+                        <Icon className="size-3.5 shrink-0" />
+                        {CHANNEL_SHORT[c]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-          <Card className="p-5">
-            <Label>Try a sample</Label>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {samples(today).map((x) => (
-                <button
-                  key={x.label}
-                  onClick={() => {
-                    setText(x.text);
-                    setFile(null);
-                    setChannel(x.channel);
-                    setReceivedAt(today);
-                    setResult(null);
-                    setDone(null);
-                    setError("");
+              {/* Content */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDrag(true);
+                }}
+                onDragLeave={() => setDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDrag(false);
+                  const f = e.dataTransfer.files[0];
+                  if (f) attach(f);
+                }}
+                className={cx(
+                  "relative overflow-hidden rounded-xl border bg-white transition focus-within:border-ink/40 focus-within:ring-2 focus-within:ring-ink/5",
+                  drag ? "border-accent ring-2 ring-accent/20" : "border-line",
+                )}
+              >
+                <textarea
+                  ref={textRef}
+                  dir="auto"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      run();
+                    }
                   }}
-                  className="rounded-lg border border-line px-3 py-2.5 text-left transition hover:border-ink/30 hover:bg-paper"
-                >
-                  <div className="text-sm font-medium">{x.label}</div>
-                  <div className="text-xs text-faint">{x.hint}</div>
-                </button>
-              ))}
+                  placeholder="Paste an email, letter, WhatsApp message or call note, in Arabic or English…"
+                  rows={11}
+                  className="scroll-thin block w-full resize-y bg-transparent px-4 pb-2 pt-3.5 text-sm leading-relaxed outline-none placeholder:text-faint"
+                />
+
+                {file && (
+                  <div className="mx-3 mb-2 flex items-center gap-2.5 rounded-lg border border-line bg-paper p-1.5 pr-2">
+                    {file.preview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={file.preview} alt="" className="size-9 rounded-md object-cover" />
+                    ) : (
+                      <span className="flex size-9 items-center justify-center rounded-md bg-red-50 text-[10px] font-bold text-red-700">PDF</span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-medium">{file.name}</div>
+                      <div className="text-[11px] text-faint">{kb(file.size)} · the AI reads the scan directly</div>
+                    </div>
+                    <button onClick={() => setFile(null)} className="rounded p-1 text-faint hover:bg-white hover:text-ink" aria-label="Remove file">
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 border-t border-line bg-paper/50 px-3 py-2">
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,application/pdf,text/plain"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) attach(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-white hover:text-ink"
+                  >
+                    <Paperclip className="size-3.5" /> {file ? "Replace file" : "Attach scan or PDF"}
+                  </button>
+                  <span className="ml-auto flex items-center gap-2 text-[11px] text-faint">
+                    {language && <span className="rounded-full border border-line bg-white px-2 py-0.5 font-medium text-muted">{language}</span>}
+                    {text.length > 0 && <span className="tabular-nums">{text.length.toLocaleString()} chars</span>}
+                  </span>
+                </div>
+
+                {drag && (
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-accent-soft/90 text-accent">
+                    <Upload className="size-6" />
+                    <span className="text-sm font-semibold">Drop to attach</span>
+                    <span className="text-xs">Scan, photo or PDF up to 3 MB</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted">
+                  Received
+                  <input
+                    type="date"
+                    value={receivedAt}
+                    max={today}
+                    onChange={(e) => setReceivedAt(e.target.value || today)}
+                    className={cx(inputCls, "w-auto py-1 text-xs")}
+                  />
+                </label>
+                <span className="hidden text-[11px] text-faint sm:inline">
+                  <kbd className="rounded border border-line bg-white px-1 font-sans">Ctrl</kbd> + <kbd className="rounded border border-line bg-white px-1 font-sans">Enter</kbd>
+                </span>
+              </div>
+
+              <button
+                onClick={run}
+                disabled={!canRun}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-ink/85 disabled:cursor-not-allowed disabled:bg-ink/25"
+              >
+                {loading ? <LoaderCircle className="size-4 animate-spin" /> : <Bot className="size-4" />}
+                {loading ? "Reading…" : "Analyse item"}
+              </button>
+              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             </div>
           </Card>
         </div>
@@ -225,23 +363,36 @@ export function Intake({ s, act, today, go }: Props) {
         {/* Result column */}
         <div ref={resultRef} className="min-w-0 scroll-mt-4">
           {loading ? (
-            <Card className="p-8">
-              <div className="relative h-1 overflow-hidden rounded bg-line loading-bar" />
-              <ul className="mt-6 space-y-3">
-                {STEPS.map((x, i) => (
-                  <li key={x} className={cx("flex items-center gap-3 text-sm transition", i <= step ? "text-ink" : "text-faint")}>
-                    <span
-                      className={cx(
-                        "flex size-5 items-center justify-center rounded-full border text-[10px]",
-                        i < step ? "border-ink bg-ink text-white" : i === step ? "border-accent text-accent" : "border-line",
-                      )}
-                    >
-                      {i < step ? "✓" : i + 1}
-                    </span>
-                    {x}
-                  </li>
-                ))}
-              </ul>
+            <Card className="overflow-hidden">
+              <div className="loading-bar relative h-1 overflow-hidden bg-line" />
+              <div className="p-6 sm:p-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Bot className="size-4 text-accent" /> Wared is reading the item
+                  </div>
+                  <span className="font-mono text-xs tabular-nums text-faint">{elapsed}s</span>
+                </div>
+                <ul className="mt-6 space-y-3.5">
+                  {STEPS.map((x, i) => (
+                    <li key={x} className={cx("flex items-center gap-3 text-sm transition", i <= step ? "text-ink" : "text-faint")}>
+                      <span
+                        className={cx(
+                          "flex size-6 items-center justify-center rounded-full border text-[10px] transition",
+                          i < step ? "border-emerald-600 bg-emerald-600 text-white" : i === step ? "border-accent text-accent" : "border-line",
+                        )}
+                      >
+                        {i < step ? <Check className="size-3.5" /> : i === step ? <LoaderCircle className="size-3.5 animate-spin" /> : i + 1}
+                      </span>
+                      {x}
+                    </li>
+                  ))}
+                </ul>
+                {elapsed >= 15 && (
+                  <p className="mt-6 rounded-lg bg-paper px-3 py-2 text-xs text-muted">
+                    Google&apos;s models are busy right now, so Wared may be trying a backup model. This can take up to 30 seconds.
+                  </p>
+                )}
+              </div>
             </Card>
           ) : shown ? (
             <div className="space-y-4">
@@ -257,7 +408,7 @@ export function Intake({ s, act, today, go }: Props) {
               />
             </div>
           ) : (
-            <EmptyState />
+            <EmptyState samples={sampleList} onPick={loadSample} />
           )}
         </div>
       </div>
@@ -338,34 +489,72 @@ function DoneCard({ plan, onNext, go }: { plan: Plan; onNext: () => void; go: (t
   );
 }
 
-function EmptyState() {
-  const rows = [
-    ["1 · Understand", "Reads emails, scanned letters, PDFs, WhatsApp messages and call notes in Arabic or English. Finds the sender, project, urgency and every deadline."],
-    ["2 · Plan", "Proposes the work: log, route, create follow-ups, draft replies. Fixed rules mark each step as automatic or needing approval."],
-    ["3 · Act", "Routine steps run straight away. Replies to outside parties and doubtful routing wait in Approvals."],
-    ["4 · Record", "Everything lands in the register, follow-ups and audit log, ready for the Command Center and the assistant."],
+function EmptyState({ samples, onPick }: { samples: Sample[]; onPick: (x: Sample) => void }) {
+  const steps: [LucideIcon, string, string][] = [
+    [Bot, "Understand", "Sender, project, urgency, deadlines"],
+    [FileText, "Plan", "Log, route, follow-ups, reply drafts"],
+    [ShieldCheck, "Act", "Routine runs; exceptions wait for you"],
+    [Check, "Record", "Register, follow-ups and audit log"],
   ];
   return (
-    <Card className="p-6 sm:p-8">
-      <div className="flex items-baseline gap-3">
-        <h2 className="text-xl font-semibold">Every letter starts a clock.</h2>
-        <span dir="rtl" className="text-lg text-faint">
-          وارد
-        </span>
+    <Card className="overflow-hidden">
+      <div className="p-6 sm:p-8">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-xl font-semibold tracking-tight">Every letter starts a clock.</h2>
+          <span dir="rtl" className="text-lg text-faint">
+            وارد
+          </span>
+        </div>
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted">
+          A Notice of Claim under FIDIC 2017 gives the Engineer 14 days before it is deemed valid. A payment statement starts a 28-day certification
+          clock. Wared makes sure none of these is missed at the front desk.
+        </p>
+
+        <ol className="mt-6 grid gap-2 sm:grid-cols-4">
+          {steps.map(([Icon, k, v]) => (
+            <li key={k} className="rounded-lg bg-paper px-3 py-3">
+              <div className="flex items-center gap-2">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-white text-muted ring-1 ring-inset ring-line">
+                  <Icon className="size-3.5" />
+                </span>
+                <span className="text-xs font-semibold">{k}</span>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug text-muted">{v}</p>
+            </li>
+          ))}
+        </ol>
       </div>
-      <p className="mt-2 max-w-prose text-sm text-muted">
-        A Notice of Claim under FIDIC 2017 gives the Engineer 14 days before it is deemed valid. A payment statement starts a 28-day certification clock. Wared makes
-        sure none of these is missed at the front desk.
-      </p>
-      <dl className="mt-6 divide-y divide-line border-y border-line">
-        {rows.map(([k, v]) => (
-          <div key={k} className="grid gap-1 py-3 sm:grid-cols-[8rem_1fr]">
-            <dt className="text-sm font-medium">{k}</dt>
-            <dd className="text-sm text-muted">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-5 text-xs text-faint">Pick a sample on the left to see it work. All companies, people and projects are fictional.</p>
+
+      <div className="border-t border-line bg-paper/40 p-6 sm:p-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Label>Start with a sample</Label>
+          <span className="text-[11px] text-faint">All people and companies are fictional</span>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {samples.map((x) => {
+            const Icon = CHANNEL_ICON[x.channel];
+            const lang = detectLanguage(x.text);
+            return (
+              <button
+                key={x.label}
+                onClick={() => onPick(x)}
+                className="group flex items-start gap-3 rounded-xl border border-line bg-white p-3 text-left transition hover:-translate-y-px hover:border-ink/25 hover:shadow-[0_6px_16px_-8px_rgba(27,26,23,0.2)]"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-paper text-muted ring-1 ring-inset ring-line transition group-hover:text-accent">
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium leading-snug">{x.label}</span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-faint">
+                    {x.hint}
+                    {lang && lang !== "English" && <span className="rounded-full bg-accent-soft px-1.5 py-px font-medium text-accent">{lang}</span>}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </Card>
   );
 }

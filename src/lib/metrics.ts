@@ -10,9 +10,17 @@ export function computeMetrics(s: State, today: string) {
   const week = s.audit.filter((e) => inWeek(e.at));
   const aiWeek = week.filter((e) => e.actor === "ai").length;
   const openTasks = s.tasks.filter((t) => t.status === "open");
+  const pending = s.approvals.filter((a) => a.status === "pending");
+  const itemsToday = s.entries.filter((e) => e.receivedAt === today).length;
+  const arrivalsToday = s.visitors.filter((v) => isToday(v.arrivedAt)).length;
 
   return {
-    interactionsToday: s.entries.filter((e) => e.receivedAt === today).length + s.visitors.filter((v) => isToday(v.arrivedAt)).length,
+    itemsToday,
+    arrivalsToday,
+    interactionsToday: itemsToday + arrivalsToday,
+    // Open follow-ups due from today through the next 7 days (overdue counted separately).
+    dueSoonTasks: openTasks.filter((t) => t.dueDate && t.dueDate >= today && daysBetween(today, t.dueDate) <= 7).length,
+    oldestPendingDays: pending.reduce((n, a) => Math.max(n, daysBetween(localDay(a.createdAt), today)), 0),
     aiActionsToday: eventsToday.filter((e) => e.actor === "ai").length,
     humanActionsToday: eventsToday.filter((e) => e.actor === "human").length,
     pendingApprovals: s.approvals.filter((a) => a.status === "pending").length,
